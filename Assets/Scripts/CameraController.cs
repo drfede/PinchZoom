@@ -10,18 +10,18 @@ namespace PinchZoom
     {
 
         [SerializeField]
-        private float panAcceleration = 2.0f;
+        private CameraSettings settings;
 
         [SerializeField]
         private Vector2 minCameraValues = new(-10, 10);
         [SerializeField]
         private Vector2 maxCameraValues = new(-10, 10);
-        [SerializeField,Range(0.1f,3.0f)]
-        private float dragSpeed = 1.0f;
         [SerializeField]
         private Camera camera;
 
         private Vector3 dragStartingPosition = new();
+
+        private bool isDragging = false;
 
         private bool isPanEnabled = true;
         private bool isZoomEnabled = true;
@@ -49,16 +49,35 @@ namespace PinchZoom
                 TryPan();
 
 
-            //if (IsZoomEnabled)
-            //    TryZoom();
+            if (IsZoomEnabled)
+                TryZoom();
 
-            //Add Border Check
+            CheckBorders();
+
+        }
+
+        private void CheckBorders()
+        {
+            var cameraPos = camera.transform.position;
+            if (cameraPos.x <= settings.LeftLimit)
+                camera.transform.position = new(settings.LeftLimit, cameraPos.y);
+            if (cameraPos.x >= settings.RightLimit)
+                camera.transform.position = new(settings.RightLimit, cameraPos.y);
+
+            if (cameraPos.y >= settings.TopLimit)
+                camera.transform.position = new(cameraPos.x, settings.TopLimit);
+            if (cameraPos.y <= settings.BottomLimit)
+                camera.transform.position = new(cameraPos.x, settings.BottomLimit);
 
         }
 
         private void TryZoom()
         {
-            throw new NotImplementedException();
+            if (Input.touchCount == 2)
+            {
+                var firstTouch = Input.touches[0];
+                var secondTouch = Input.touches[1];
+            }
         }
 
         private void TryPan()
@@ -68,15 +87,27 @@ namespace PinchZoom
                 var touch = Input.touches[0];
                 if (touch.phase == TouchPhase.Began)
                 {
-                    dragStartingPosition = touch.position;
+                    isDragging = true;
                 }
-                else
+                
+                if (touch.phase == TouchPhase.Moved && isDragging)
                 {
-                    var movement = -touch.deltaPosition * dragSpeed * Time.deltaTime;
+#if UNITY_EDITOR
+                    var movement = -touch.deltaPosition * settings.DragSpeed * Time.deltaTime * 10;
+#else
+                    var movement = -touch.deltaPosition * settings.DragSpeed * Time.deltaTime;
+#endif
+
                     Debug.Log(movement);
                     camera.transform.Translate(movement.x, movement.y, 0);
                 }
+
+                if (touch.phase == TouchPhase.Ended)
+                {
+                    isDragging = false;
+                }
             }
         }
+
     }
 }
