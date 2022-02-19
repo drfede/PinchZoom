@@ -12,11 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e413f52b3d4883b44901f36a011ad100, type: 3}
   m_Name: StandardCamera
   m_EditorClassIdentifier: 
-  dragSpeed: 0.3
+  dragSpeed: 0.25
+  decelerationFriction: 0.8
+  decelerationTime: 0.8
   zoomSpeed: 0.2
-  minCameraZoom: 1.5
-  maxCameraZoom: 6
+  minCameraZoom: 3.5
+  maxCameraZoom: 9
+  minZoomTolerance: 1
+  maxZoomTolerance: 2
+  zoomCorrectionTime: 0.35
   topLimit: 8
   bottomLimit: -8
-  leftLimit: -8
-  rightLimit: 8
+  leftLimit: -14.5
+  rightLimit: 12

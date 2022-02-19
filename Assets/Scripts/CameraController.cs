@@ -10,23 +10,18 @@ namespace PinchZoom
     {
 
         [SerializeField]
-        private CameraSettings settings;
-
-        [SerializeField]
-        private Vector2 minCameraValues = new(-10, 10);
-        [SerializeField]
-        private Vector2 maxCameraValues = new(-10, 10);
-        [SerializeField]
         private Camera camera;
-
-
-        private bool isDragging = false;
-        private bool isZooming = false;
+        [SerializeField]
+        private CameraSettings settings;
 
         private bool isPanEnabled = true;
         private bool isZoomEnabled = true;
 
+        private bool isDragging = false;
+        private bool isZooming = false;
         private float previousPinchDistance;
+        private Vector2 dragDeceleration;
+        private float decelerationTime = 0;
 
 
         public bool IsPanEnabled { get => isPanEnabled; set => isPanEnabled = value; }
@@ -74,10 +69,20 @@ namespace PinchZoom
 
             if (camera.orthographic)
             {
-                if (camera.orthographicSize >= settings.MaxCameraZoom)
-                    camera.orthographicSize = settings.MaxCameraZoom;
-                if (camera.orthographicSize <= settings.MinCameraZoom)
-                    camera.orthographicSize = settings.MinCameraZoom;
+
+                if (isZooming)
+                {
+                    if (camera.orthographicSize >= settings.MaxCameraZoom + settings.MaxZoomTolerance)
+                        camera.orthographicSize = settings.MaxCameraZoom + settings.MaxZoomTolerance;
+                    if (camera.orthographicSize <= settings.MinCameraZoom - settings.MinZoomTolerance)
+                        camera.orthographicSize = settings.MinCameraZoom - settings.MinZoomTolerance;
+                } else
+                {
+                    if (camera.orthographicSize > settings.MaxCameraZoom)
+                        camera.orthographicSize = Mathf.Lerp(camera.orthographicSize, settings.MaxCameraZoom, settings.ZoomCorrectionTime);
+                    if (camera.orthographicSize < settings.MinCameraZoom)
+                        camera.orthographicSize = Mathf.Lerp(camera.orthographicSize, settings.MinCameraZoom, settings.ZoomCorrectionTime);
+                }
             }
 
         }
@@ -86,6 +91,7 @@ namespace PinchZoom
         {
             if (Input.touchCount == 2)
             {
+                isZooming = true;
                 var firstTouch = Input.touches[0];
                 var secondTouch = Input.touches[1];
                 var distance = Vector2.Distance(firstTouch.position, secondTouch.position);
@@ -93,12 +99,12 @@ namespace PinchZoom
 
 
                 var zoomChange = (firstTouch.deltaPosition - secondTouch.deltaPosition).magnitude;
-                Debug.Log("Distance: " + distance + " " + " Zoom Change: " + zoomChange);
                 camera.orthographicSize += zoomChange * Time.deltaTime * settings.ZoomSpeed * sign;
 
                 previousPinchDistance = distance;
-
-
+            } else
+            {
+                isZooming = false;
             }
         }
 
@@ -111,26 +117,64 @@ namespace PinchZoom
                 {
                     isDragging = true;
                 }
-                
+
                 if (touch.phase == TouchPhase.Moved && isDragging)
                 {
                     var dragSpeed = settings.DragSpeed * Mathf.Clamp01(camera.orthographicSize / settings.MaxCameraZoom);
 #if UNITY_EDITOR
-                    var movement = -touch.deltaPosition * dragSpeed * Time.deltaTime * 10;
+                    var movement = 10 * dragSpeed * Time.deltaTime * -touch.deltaPosition;
 #else
-                    var movement = -touch.deltaPosition * dragSpeed * Time.deltaTime;
+                    var movement = dragSpeed * Time.deltaTime * -touch.deltaPosition;
 #endif
-
-                    //Debug.Log(movement);
                     camera.transform.Translate(movement.x, movement.y, 0);
                 }
 
                 if (touch.phase == TouchPhase.Ended)
                 {
+                    decelerationTime = 0;
+                    dragDeceleration = -touch.deltaPosition;
                     isDragging = false;
                 }
             }
+            else if (Input.touchCount == 0)
+            {
+                Decelerate();
+            }
+            
         }
 
+        private void Decelerate()
+        {
+            if (decelerationTime < settings.DecelerationTime)
+            {
+                Vector3 speed = Vector3.zero;
+                var current = camera.transform.position;
+                var dragDecelerationModifier = new Vector3(dragDeceleration.x * ScreenDimensionModifier().x,
+                                                           dragDeceleration.y * ScreenDimensionModifier().y);
+
+                var destination = current + (dragDecelerationModifier * settings.DecelerationFriction
+                                            * Mathf.Clamp01(1 - decelerationTime / settings.DecelerationTime));
+
+                camera.transform.position = Vector3.SmoothDamp(current, destination, ref speed, settings.DecelerationTime);
+                decelerationTime += Time.deltaTime;
+            }
+        }
+
+        private Vector2 ScreenDimensionModifier()
+        {
+            Vector2 val= Vector2.zero;
+            if (Screen.width < Screen.height)
+            {
+                var screenDifference = Mathf.Clamp01((float)Screen.width / (float)Screen.height);
+                val.x = Mathf.Lerp(settings.MinScreenDimensionModifier, settings.MaxScreenDimensionModifier, screenDifference);
+                val.y = settings.MinScreenDimensionModifier;
+            } else
+            {
+                var screenDifference = Mathf.Clamp01((float)Screen.width / (float)Screen.height);
+                val.x = settings.MinScreenDimensionModifier;
+                val.y = Mathf.Lerp(settings.MinScreenDimensionModifier, settings.MaxScreenDimensionModifier, screenDifference);
+            }
+            return val;
+        }
     }
 }
