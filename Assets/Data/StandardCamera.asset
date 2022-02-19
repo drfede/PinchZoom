@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: StandardCamera
   m_EditorClassIdentifier: 
   dragSpeed: 0.3
+  zoomSpeed: 0.2
+  minCameraZoom: 1.5
+  maxCameraZoom: 6
   topLimit: 8
   bottomLimit: -8
   leftLimit: -8
