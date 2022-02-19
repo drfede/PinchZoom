@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace PinchZoom
 {
@@ -22,21 +23,24 @@ namespace PinchZoom
         private float previousPinchDistance;
         private Vector2 dragDeceleration;
         private float decelerationTime = 0;
+        private float oldZoomValue = 0;
 
-
+        public UnityEvent<float> onZoomCallback;
         public bool IsPanEnabled { get => isPanEnabled; set => isPanEnabled = value; }
         public bool IsZoomEnabled { get => isZoomEnabled; set => isZoomEnabled = value; }
+        public float StartingCameraScale { get; private set; }
 
         private void Awake()
         {
             if (camera == null)
                 camera = Camera.main;
+            StartingCameraScale = camera.orthographicSize;
+            oldZoomValue = StartingCameraScale;
         }
 
         // Start is called before the first frame update
         void Start()
         {
-
         }
 
         // Update is called once per frame
@@ -69,7 +73,6 @@ namespace PinchZoom
 
             if (camera.orthographic)
             {
-
                 if (isZooming)
                 {
                     if (camera.orthographicSize >= settings.MaxCameraZoom + settings.MaxZoomTolerance)
@@ -79,10 +82,16 @@ namespace PinchZoom
                 } else
                 {
                     if (camera.orthographicSize > settings.MaxCameraZoom)
+                    {
                         camera.orthographicSize = Mathf.Lerp(camera.orthographicSize, settings.MaxCameraZoom, settings.ZoomCorrectionTime);
+                    }
                     if (camera.orthographicSize < settings.MinCameraZoom)
                         camera.orthographicSize = Mathf.Lerp(camera.orthographicSize, settings.MinCameraZoom, settings.ZoomCorrectionTime);
                 }
+
+                if (Mathf.Abs(camera.orthographicSize - oldZoomValue) > float.Epsilon)
+                    onZoomCallback?.Invoke(camera.orthographicSize);
+                oldZoomValue = camera.orthographicSize;
             }
 
         }
@@ -100,6 +109,7 @@ namespace PinchZoom
 
                 var zoomChange = (firstTouch.deltaPosition - secondTouch.deltaPosition).magnitude;
                 camera.orthographicSize += zoomChange * Time.deltaTime * settings.ZoomSpeed * sign;
+
 
                 previousPinchDistance = distance;
             } else
